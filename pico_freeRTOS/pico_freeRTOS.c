@@ -17,6 +17,7 @@
 #include "pico/stdlib.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include <stdio.h>
 
 // LED pins on 3pi+ robot
 #define YELLOW_LED 25
@@ -104,6 +105,19 @@ void task_heartbeat(void *params) {
  * Initializes hardware and creates FreeRTOS tasks
  */
 int main() {
+    stdio_init_all();  // Initialize stdio (for debugging if needed)
+
+        // CRITICAL: Wait for USB to enumerate
+    sleep_ms(2000);
+    
+    // Test message - you should see this in your serial terminal!
+    while (1) {
+        printf("Hello, FreeRTOS on 3pi+ 2040!\n");
+        sleep_ms(1000);
+    }
+    
+    return 0;
+
     // Initialize yellow LED
     gpio_init(YELLOW_LED);
     gpio_set_dir(YELLOW_LED, GPIO_OUT);

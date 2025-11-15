@@ -36,6 +36,8 @@ pico_sdk_init()
 
 # Add executable
 add_executable(pico_freeRTOS pico_freeRTOS.c)
+pico_enable_stdio_usb(pico_freeRTOS 1)   # Enable USB serial
+pico_enable_stdio_uart(pico_freeRTOS 0)  # Disable UART serial
 
 pico_set_program_name(pico_freeRTOS "pico_freeRTOS")
 pico_set_program_version(pico_freeRTOS "0.1")
