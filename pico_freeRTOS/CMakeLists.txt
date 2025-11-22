@@ -35,7 +35,11 @@ project(pico_freeRTOS C CXX ASM)
 pico_sdk_init()
 
 # Add executable
-add_executable(pico_freeRTOS pico_freeRTOS.c)
+add_executable(pico_freeRTOS 
+    pico_freeRTOS.c
+    imu_driver.c
+)
+
 pico_enable_stdio_usb(pico_freeRTOS 1)   # Enable USB serial
 pico_enable_stdio_uart(pico_freeRTOS 0)  # Disable UART serial
 
@@ -51,10 +55,12 @@ target_link_libraries(pico_freeRTOS
     pico_stdlib
     FreeRTOS-Kernel
     FreeRTOS-Kernel-Heap4
+    hardware_i2c
 )
 
 # Add include directories
 target_include_directories(pico_freeRTOS PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/header
     ${CMAKE_CURRENT_LIST_DIR}
 )
 

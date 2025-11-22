@@ -18,6 +18,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include <stdio.h>
+#include "header/imu_driver.h"
 
 // LED pins on 3pi+ robot
 #define YELLOW_LED 25
@@ -99,116 +100,199 @@ void task_heartbeat(void *params) {
     }
 }
 
+// Task to test IMU I2C communication
+void imu_test_task(void *params) {
+    stdio_init_all();  // Initialize stdio for debugging output
+    gpio_put(YELLOW_LED, 1); // Ensure LED is OFF initially
+    vTaskDelay(pdMS_TO_TICKS(4000));  // Wait for USB to enumerate
+    gpio_put(YELLOW_LED, 0); // Turn LED ON to indicate start
+
+    // Step 1: Initialize I2C hardware
+    printf("[1/3] Initializing I2C...\n");
+    imu_i2c_init();
+    gpio_put(YELLOW_LED, 1); // Turn LED OFF
+    vTaskDelay(pdMS_TO_TICKS(2000));  // Brief delay after init
+    gpio_put(YELLOW_LED, 0); // Turn LED ON
+    
+    // Step 2: Test if device responds
+    printf("\n[2/3] Testing device connection...\n");
+    if (!imu_test_connection()) {
+        printf("\n❌ FAILED: Cannot detect IMU on I2C bus\n");
+        printf("Check: GP4 (SDA) and GP5 (SCL) connections\n");
+        gpio_put(YELLOW_LED, 1); // Turn LED OFF
+        vTaskDelete(NULL);
+    }
+    
+    // Step 3: Verify chip identity
+    printf("\n[3/3] Verifying chip identity...\n");
+    if (!imu_check_who_am_i()) {
+        printf("\n❌ FAILED: Wrong chip ID\n");
+        printf("Possible causes:\n");
+        printf("  - Wrong I2C address (try 0x6A instead of 0x6B)\n");
+        printf("  - Communication error\n");
+        printf("  - Reading wrong sensor\n");
+        gpio_put(YELLOW_LED, 1); // Turn LED OFF
+        vTaskDelete(NULL);
+    }
+    
+    // Success!
+    printf("\n");
+    printf("=====================================\n");
+    printf("  ✓ IMU I2C Communication SUCCESS\n");
+    printf("=====================================\n");
+    printf("\nReady to configure and read sensor data!\n\n");
+    
+    gpio_put(YELLOW_LED, 1); // Turn LED OFF
+
+    // Task complete - delete itself
+    vTaskDelete(NULL);
+}
+
 /**
  * Main Function
  * 
  * Initializes hardware and creates FreeRTOS tasks
  */
 int main() {
-    stdio_init_all();  // Initialize stdio (for debugging if needed)
+    // stdio_init_all();  // Initialize stdio (for debugging if needed)
 
-        // CRITICAL: Wait for USB to enumerate
-    sleep_ms(2000);
+    // CRITICAL: Wait for USB to enumerate
+    // vTaskDelay(pdMS_TO_TICKS(2000));    
     
+    // printf("\n\n");
+    // printf("*************************************\n");
+    // printf("  Pico FreeRTOS - IMU Driver Test\n");
+    // printf("*************************************\n");
+    
+    // Create IMU test task
+    xTaskCreate(
+        imu_test_task,      // Task function
+        "IMU_Test",         // Task name (for debugging)
+        512,                // Stack size (words, not bytes)
+        NULL,               // Parameters
+        1,                  // Priority
+        NULL                // Task handle
+    );
+
+    // Initialize the LED pin and toggle it ON
+    gpio_init(YELLOW_LED);
+    gpio_set_dir(YELLOW_LED, GPIO_OUT);
+
+    gpio_put(YELLOW_LED, 0); // drive LED OFF (3pi+ LED is active-low)
+
+    // Start FreeRTOS scheduler
+    vTaskStartScheduler();
+
+    gpio_put(YELLOW_LED, 1);
+
+    while(1) {}
+
+    // while(1) {
+    //     gpio_put(YELLOW_LED, 0);  // ON
+    //     sleep_ms(1000);
+    //     gpio_put(YELLOW_LED, 1);  // OFF
+    //     sleep_ms(1000);
+    // }
+
     // Test message - you should see this in your serial terminal!
-    while (1) {
-        printf("Hello, FreeRTOS on 3pi+ 2040!\n");
-        sleep_ms(1000);
-    }
+    // while (1) {
+    //     printf("Hello, FreeRTOS on 3pi+ 2040!\n");
+    //     sleep_ms(1000);
+    // }
     
     return 0;
 
-    // Initialize yellow LED
-    gpio_init(YELLOW_LED);
-    gpio_set_dir(YELLOW_LED, GPIO_OUT);
-    gpio_put(YELLOW_LED, 1);  // Start OFF
+    // // Initialize yellow LED
+    // gpio_init(YELLOW_LED);
+    // gpio_set_dir(YELLOW_LED, GPIO_OUT);
+    // gpio_put(YELLOW_LED, 1);  // Start OFF
     
-    // Startup signal: 10 rapid blinks to show program loaded
-    for (int i = 0; i < 10; i++) {
-        gpio_put(YELLOW_LED, 0);
-        sleep_ms(50);
-        gpio_put(YELLOW_LED, 1);
-        sleep_ms(50);
-    }
+    // // Startup signal: 10 rapid blinks to show program loaded
+    // for (int i = 0; i < 10; i++) {
+    //     gpio_put(YELLOW_LED, 0);
+    //     sleep_ms(50);
+    //     gpio_put(YELLOW_LED, 1);
+    //     sleep_ms(50);
+    // }
     
-    sleep_ms(1000);  // Pause before starting FreeRTOS
+    // sleep_ms(1000);  // Pause before starting FreeRTOS
     
-    /**
-     * Create Task 1: Fast Blink (Priority 3)
-     * Stack: 256 words = 1024 bytes
-     */
-    xTaskCreate(
-        task_fast_blink,
-        "FastBlink",
-        256,
-        NULL,
-        3,  // Highest priority
-        NULL
-    );
+    // /**
+    //  * Create Task 1: Fast Blink (Priority 3)
+    //  * Stack: 256 words = 1024 bytes
+    //  */
+    // xTaskCreate(
+    //     task_fast_blink,
+    //     "FastBlink",
+    //     256,
+    //     NULL,
+    //     3,  // Highest priority
+    //     NULL
+    // );
     
-    /**
-     * Create Task 2: Slow Blink (Priority 1)
-     * This will only run when fast blink is sleeping
-     */
-    xTaskCreate(
-        task_slow_blink,
-        "SlowBlink",
-        256,
-        NULL,
-        1,  // Lowest priority
-        NULL
-    );
+    // /**
+    //  * Create Task 2: Slow Blink (Priority 1)
+    //  * This will only run when fast blink is sleeping
+    //  */
+    // xTaskCreate(
+    //     task_slow_blink,
+    //     "SlowBlink",
+    //     256,
+    //     NULL,
+    //     1,  // Lowest priority
+    //     NULL
+    // );
     
-    /**
-     * Create Task 3: Core 1 Task (Priority 2, Core Affinity = Core 1)
-     */
-    TaskHandle_t core1_handle = NULL;
-    xTaskCreate(
-        task_core1_exclusive,
-        "Core1Task",
-        256,
-        NULL,
-        2,  // Medium priority
-        &core1_handle
-    );
+    // /**
+    //  * Create Task 3: Core 1 Task (Priority 2, Core Affinity = Core 1)
+    //  */
+    // TaskHandle_t core1_handle = NULL;
+    // xTaskCreate(
+    //     task_core1_exclusive,
+    //     "Core1Task",
+    //     256,
+    //     NULL,
+    //     2,  // Medium priority
+    //     &core1_handle
+    // );
     
-    // Pin this task to Core 1 only
-    // vTaskCoreAffinitySet(core1_handle, (1 << 1));  // Bit 1 = Core 1
+    // // Pin this task to Core 1 only
+    // // vTaskCoreAffinitySet(core1_handle, (1 << 1));  // Bit 1 = Core 1
     
-    /**
-     * Create Task 4: Heartbeat (Priority 2)
-     */
-    xTaskCreate(
-        task_heartbeat,
-        "Heartbeat",
-        256,
-        NULL,
-        2,
-        NULL
-    );
+    // /**
+    //  * Create Task 4: Heartbeat (Priority 2)
+    //  */
+    // xTaskCreate(
+    //     task_heartbeat,
+    //     "Heartbeat",
+    //     256,
+    //     NULL,
+    //     2,
+    //     NULL
+    // );
     
-    /**
-     * Start the FreeRTOS scheduler
-     * This function NEVER returns
-     * CPU control transfers to FreeRTOS
-     */
-    vTaskStartScheduler();
+    // /**
+    //  * Start the FreeRTOS scheduler
+    //  * This function NEVER returns
+    //  * CPU control transfers to FreeRTOS
+    //  */
+    // vTaskStartScheduler();
     
-    // Should never reach here
-    // If we do, blink SOS pattern (3 short, 3 long, 3 short)
-    while (1) {
-            // Double blink
-            gpio_put(YELLOW_LED, 0);
-            sleep_ms(100);
-            gpio_put(YELLOW_LED, 1);
-            sleep_ms(100);
-            gpio_put(YELLOW_LED, 0);
-            sleep_ms(100);
-            gpio_put(YELLOW_LED, 1);
+    // // Should never reach here
+    // // If we do, blink SOS pattern (3 short, 3 long, 3 short)
+    // while (1) {
+    //         // Double blink
+    //         gpio_put(YELLOW_LED, 0);
+    //         sleep_ms(100);
+    //         gpio_put(YELLOW_LED, 1);
+    //         sleep_ms(100);
+    //         gpio_put(YELLOW_LED, 0);
+    //         sleep_ms(100);
+    //         gpio_put(YELLOW_LED, 1);
             
-            // Long pause
-            sleep_ms(2000);
-    }
+    //         // Long pause
+    //         sleep_ms(2000);
+    // }
 }
 
 // FreeRTOS stack overflow hook - called when a task overflows its stack
