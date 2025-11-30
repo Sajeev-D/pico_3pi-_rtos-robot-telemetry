@@ -25,10 +25,7 @@
 // Public Functions
 // ============================================================================
 
-/**
- * Initialize I2C communication for IMU sensor
- * Must be called before any other IMU functions
- */
+
 void imu_i2c_init(void) {
     // Initialize I2C peripheral at 400kHz
     i2c_init(I2C_PORT, I2C_SPEED);
@@ -45,10 +42,6 @@ void imu_i2c_init(void) {
            I2C_SDA_PIN, I2C_SCL_PIN, I2C_SPEED / 1000);
 }
 
-/**
- * Test if LSM6DSO responds on I2C bus
- * Returns: true if device acknowledges, false otherwise
- */
 bool imu_test_connection(void) {
     uint8_t dummy;
     
@@ -64,10 +57,6 @@ bool imu_test_connection(void) {
     return true;
 }
 
-/**
- * Read WHO_AM_I register to verify chip identity
- * Returns: true if correct chip ID detected
- */
 bool imu_check_who_am_i(void) {
     uint8_t chip_id = imu_read_register(LSM6DSO_WHO_AM_I);
     
@@ -83,12 +72,6 @@ bool imu_check_who_am_i(void) {
     }
 }
 
-/**
- * Read a single register from LSM6DSO
- * 
- * reg_addr: Register address to read
- * Returns: Register value (8-bit)
- */
 uint8_t imu_read_register(uint8_t reg_addr) {
     uint8_t data;
     
@@ -101,12 +84,6 @@ uint8_t imu_read_register(uint8_t reg_addr) {
     return data;
 }
 
-/**
- * Write a single register to LSM6DSO
- * 
- * reg_addr: Register address to write
- * data: Value to write (8-bit)
- */
 void imu_write_register(uint8_t reg_addr, uint8_t data) {
     uint8_t buffer[2];
     buffer[0] = reg_addr;

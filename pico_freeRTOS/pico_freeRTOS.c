@@ -141,7 +141,75 @@ void imu_test_task(void *params) {
     printf("  ✓ IMU I2C Communication SUCCESS\n");
     printf("=====================================\n");
     printf("\nReady to configure and read sensor data!\n\n");
-    
+
+    // Test I2C write and read functions
+    printf("\n[TESTING] I2C Write/Read Functions\n");
+    printf("=====================================\n");
+
+    // Test 1: Read WHO_AM_I register directly using imu_read_register
+    printf("\nTest 1: Read WHO_AM_I register (0x0F)\n");
+    uint8_t who_am_i = imu_read_register(0x0F);
+    printf("  Result: 0x%02X (expected 0x6C)\n", who_am_i);
+
+    // Test 2: Read STATUS_REG register (0x1E) - shows if new data is available
+    printf("\nTest 2: Read STATUS_REG (0x1E)\n");
+    uint8_t status = imu_read_register(0x1E);
+    printf("  Result: 0x%02X\n", status);
+    printf("  Bit 0 (XLDA): %d (Accel data ready)\n", (status & 0x01));
+    printf("  Bit 1 (GDA): %d (Gyro data ready)\n", (status & 0x02) >> 1);
+
+    // Test 3: Write to CTRL1_XL register (0x10) to configure accelerometer
+    // Value: 0x60 = 416 Hz ODR, ±2g scale
+    printf("\nTest 3: Write to CTRL1_XL (0x10) - Configure Accelerometer\n");
+    printf("  Writing: 0x60 (416 Hz, ±2g scale)\n");
+    imu_write_register(0x10, 0x60);
+
+    // Read back to verify the write
+    uint8_t ctrl1_xl = imu_read_register(0x10);
+    printf("  Read back: 0x%02X\n", ctrl1_xl);
+    if (ctrl1_xl == 0x60) {
+        printf("  ✓ Write verified!\n");
+    } else {
+        printf("  ✗ Write failed (mismatch)\n");
+    }
+
+    // Test 4: Write to CTRL2_G register (0x11) to configure gyroscope
+    // Value: 0x60 = 416 Hz ODR, 250 dps scale
+    printf("\nTest 4: Write to CTRL2_G (0x11) - Configure Gyroscope\n");
+    printf("  Writing: 0x60 (416 Hz, 250 dps scale)\n");
+    imu_write_register(0x11, 0x60);
+
+    // Read back to verify the write
+    uint8_t ctrl2_g = imu_read_register(0x11);
+    printf("  Read back: 0x%02X\n", ctrl2_g);
+    if (ctrl2_g == 0x60) {
+        printf("  ✓ Write verified!\n");
+    } else {
+        printf("  ✗ Write failed (mismatch)\n");
+    }
+
+    // Test 5: Read some accelerometer data (registers 0x28-0x2D)
+    printf("\nTest 5: Read Accelerometer Raw Data\n");
+    printf("  Reading 6 bytes from registers 0x28-0x2D...\n");
+    uint8_t accel_x_l = imu_read_register(0x28);
+    uint8_t accel_x_h = imu_read_register(0x29);
+    uint8_t accel_y_l = imu_read_register(0x2A);
+    uint8_t accel_y_h = imu_read_register(0x2B);
+    uint8_t accel_z_l = imu_read_register(0x2C);
+    uint8_t accel_z_h = imu_read_register(0x2D);
+
+    int16_t accel_x = (int16_t)((accel_x_h << 8) | accel_x_l);
+    int16_t accel_y = (int16_t)((accel_y_h << 8) | accel_y_l);
+    int16_t accel_z = (int16_t)((accel_z_h << 8) | accel_z_l);
+
+    printf("  X-axis: %d (raw)\n", accel_x);
+    printf("  Y-axis: %d (raw)\n", accel_y);
+    printf("  Z-axis: %d (raw)\n", accel_z);
+
+    printf("\n=====================================\n");
+    printf("  ✓ I2C READ/WRITE TESTS COMPLETE\n");
+    printf("=====================================\n\n");
+
     gpio_put(YELLOW_LED, 1); // Turn LED OFF
 
     // Task complete - delete itself
