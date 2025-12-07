@@ -220,6 +220,31 @@ void imu_test_task(void *params) {
     vTaskDelete(NULL);
 }
 
+void bare_metal_test_task(void *params) {
+    stdio_init_all();  // Initialize USB serial
+    vTaskDelay(pdMS_TO_TICKS(4000));  // Wait for USB enumeration
+    
+    printf("\n[BARE METAL STANDALONE TEST]\n");
+    printf("Testing without SDK initialization...\n\n");
+    
+    // no SDK I2C init
+    imu_bare_metal_init();
+    uint8_t who_am_i = imu_bare_metal_read_register(LSM6DSO_I2C_ADDR, LSM6DSO_WHO_AM_I);
+    
+    printf("Bare metal WHO_AM_I: 0x%02X (expected 0x6C)\n", who_am_i);
+    
+    if (who_am_i == 0x6C) {
+        printf("✓ SUCCESS: Bare metal I2C working independently!\n");
+    } else {
+        printf("✗ FAILED: Got 0x%02X instead of 0x6C\n", who_am_i);
+    }
+    
+    // Keep task alive so you can see output
+    while(1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
 /**
  * Main Function
  * 
@@ -366,6 +391,17 @@ int main() {
     //         sleep_ms(2000);
     // }
 }
+
+// main to test bare metal I2C without SDK initialization
+// int main () {
+//     xTaskCreate(bare_metal_test_task, "BareMetalTest", 256, NULL, 1, NULL);
+    
+//     // Start scheduler
+//     vTaskStartScheduler();
+    
+//     // Should never reach here
+//     while(1);
+// }
 
 // FreeRTOS stack overflow hook - called when a task overflows its stack
 void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
