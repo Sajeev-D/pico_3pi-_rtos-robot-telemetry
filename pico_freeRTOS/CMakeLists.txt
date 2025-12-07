@@ -39,6 +39,7 @@ add_executable(pico_freeRTOS
     pico_freeRTOS.c
     src/imu_driver.c
     src/imu_bare_metal.c
+    src/performance_profiler.c
 )
 
 pico_enable_stdio_usb(pico_freeRTOS 1)   # Enable USB serial

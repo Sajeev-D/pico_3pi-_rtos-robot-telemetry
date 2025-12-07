@@ -20,6 +20,8 @@
 #include <stdio.h>
 #include "header/imu_driver.h"
 #include "header/imu_bare_metal.h"
+#include "header/performance_profiler.h" 
+#include <math.h>
 
 // LED pins on 3pi+ robot
 #define YELLOW_LED 25
@@ -245,152 +247,236 @@ void bare_metal_test_task(void *params) {
     }
 }
 
+void performance_comparison_task(void *params) {
+    stdio_init_all();
+    vTaskDelay(pdMS_TO_TICKS(4000));
+    
+    printf("\n");
+    printf("=========================================\n");
+    printf("  I2C PERFORMANCE COMPARISON\n");
+    printf("  SDK vs Bare Metal\n");
+    printf("=========================================\n\n");
+    
+    // Initialize profiler
+    profiler_init();
+    
+    // Metrics structures
+    PerformanceMetrics sdk_metrics = {0};
+    PerformanceMetrics bare_metal_metrics = {0};
+    
+    const int NUM_SAMPLES = 100;
+    
+    // Initialize I2C
+    printf("Initializing I2C implementations...\n");
+    imu_i2c_init();
+    printf("✓ SDK initialized\n\n");
+    
+    printf("Running %d measurements of WHO_AM_I register read...\n", NUM_SAMPLES);
+    printf("(Timing resolution: 1 microsecond)\n\n");
+    
+    // Run measurements
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+        // Measure SDK read
+        uint32_t start = profiler_start();
+        uint8_t sdk_result = imu_read_register(LSM6DSO_WHO_AM_I);
+        uint32_t sdk_us = profiler_end(start);
+        profiler_update_metrics(&sdk_metrics, sdk_us);
+        
+        vTaskDelay(pdMS_TO_TICKS(1));
+        
+        // Measure bare metal read
+        start = profiler_start();
+        uint8_t bm_result = imu_bare_metal_read_register(LSM6DSO_I2C_ADDR, LSM6DSO_WHO_AM_I);
+        uint32_t bm_us = profiler_end(start);
+        profiler_update_metrics(&bare_metal_metrics, bm_us);
+        
+        vTaskDelay(pdMS_TO_TICKS(1));
+        
+        if ((i + 1) % 20 == 0) {
+            printf("  Completed %d/%d samples\n", i + 1, NUM_SAMPLES);
+        }
+    }
+    
+    // Print results
+    printf("\n");
+    profiler_print_metrics("SDK I2C Read", &sdk_metrics);
+    profiler_print_metrics("Bare Metal I2C Read", &bare_metal_metrics);
+    
+    // Analysis
+    printf("\n=== PERFORMANCE ANALYSIS ===\n");
+    
+    float diff_us = sdk_metrics.avg_cycles - bare_metal_metrics.avg_cycles;
+    
+    if (fabsf(diff_us) < 1.0f) {
+        printf("Performance is IDENTICAL (difference < 1us)\n");
+        printf("Both approaches have equivalent efficiency.\n");
+    } else if (sdk_metrics.avg_cycles > bare_metal_metrics.avg_cycles) {
+        float speedup = sdk_metrics.avg_cycles / bare_metal_metrics.avg_cycles;
+        float overhead_pct = (diff_us / bare_metal_metrics.avg_cycles) * 100.0f;
+        
+        printf("Bare metal is %.2fx FASTER\n", speedup);
+        printf("SDK overhead: %.1f%% (%.2f us per read)\n", overhead_pct, diff_us);
+    } else {
+        float speedup = bare_metal_metrics.avg_cycles / sdk_metrics.avg_cycles;
+        float overhead_pct = (-diff_us / sdk_metrics.avg_cycles) * 100.0f;
+        
+        printf("SDK is %.2fx FASTER\n", speedup);
+        printf("Bare metal overhead: %.1f%% (%.2f us per read)\n", overhead_pct, -diff_us);
+    }
+    
+    printf("\n=========================================\n\n");
+    
+    while(1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
 /**
  * Main Function
  * 
  * Initializes hardware and creates FreeRTOS tasks
  */
-int main() {
-    // stdio_init_all();  // Initialize stdio (for debugging if needed)
+// int main() {
+//     // stdio_init_all();  // Initialize stdio (for debugging if needed)
 
-    // CRITICAL: Wait for USB to enumerate
-    // vTaskDelay(pdMS_TO_TICKS(2000));    
+//     // CRITICAL: Wait for USB to enumerate
+//     // vTaskDelay(pdMS_TO_TICKS(2000));    
     
-    // printf("\n\n");
-    // printf("*************************************\n");
-    // printf("  Pico FreeRTOS - IMU Driver Test\n");
-    // printf("*************************************\n");
+//     // printf("\n\n");
+//     // printf("*************************************\n");
+//     // printf("  Pico FreeRTOS - IMU Driver Test\n");
+//     // printf("*************************************\n");
     
-    // Create IMU test task
-    xTaskCreate(
-        imu_test_task,      // Task function
-        "IMU_Test",         // Task name (for debugging)
-        512,                // Stack size (words, not bytes)
-        NULL,               // Parameters
-        1,                  // Priority
-        NULL                // Task handle
-    );
+//     // Create IMU test task
+//     xTaskCreate(
+//         imu_test_task,      // Task function
+//         "IMU_Test",         // Task name (for debugging)
+//         512,                // Stack size (words, not bytes)
+//         NULL,               // Parameters
+//         1,                  // Priority
+//         NULL                // Task handle
+//     );
 
-    // Initialize the LED pin and toggle it ON
-    gpio_init(YELLOW_LED);
-    gpio_set_dir(YELLOW_LED, GPIO_OUT);
+//     // Initialize the LED pin and toggle it ON
+//     gpio_init(YELLOW_LED);
+//     gpio_set_dir(YELLOW_LED, GPIO_OUT);
 
-    gpio_put(YELLOW_LED, 0); // drive LED OFF (3pi+ LED is active-low)
+//     gpio_put(YELLOW_LED, 0); // drive LED OFF (3pi+ LED is active-low)
 
-    // Start FreeRTOS scheduler
-    vTaskStartScheduler();
+//     // Start FreeRTOS scheduler
+//     vTaskStartScheduler();
 
-    gpio_put(YELLOW_LED, 1);
+//     gpio_put(YELLOW_LED, 1);
 
-    while(1) {}
+//     while(1) {}
 
-    // while(1) {
-    //     gpio_put(YELLOW_LED, 0);  // ON
-    //     sleep_ms(1000);
-    //     gpio_put(YELLOW_LED, 1);  // OFF
-    //     sleep_ms(1000);
-    // }
+//     // while(1) {
+//     //     gpio_put(YELLOW_LED, 0);  // ON
+//     //     sleep_ms(1000);
+//     //     gpio_put(YELLOW_LED, 1);  // OFF
+//     //     sleep_ms(1000);
+//     // }
 
-    // Test message - you should see this in your serial terminal!
-    // while (1) {
-    //     printf("Hello, FreeRTOS on 3pi+ 2040!\n");
-    //     sleep_ms(1000);
-    // }
+//     // Test message - you should see this in your serial terminal!
+//     // while (1) {
+//     //     printf("Hello, FreeRTOS on 3pi+ 2040!\n");
+//     //     sleep_ms(1000);
+//     // }
     
-    return 0;
+//     return 0;
 
-    // // Initialize yellow LED
-    // gpio_init(YELLOW_LED);
-    // gpio_set_dir(YELLOW_LED, GPIO_OUT);
-    // gpio_put(YELLOW_LED, 1);  // Start OFF
+//     // // Initialize yellow LED
+//     // gpio_init(YELLOW_LED);
+//     // gpio_set_dir(YELLOW_LED, GPIO_OUT);
+//     // gpio_put(YELLOW_LED, 1);  // Start OFF
     
-    // // Startup signal: 10 rapid blinks to show program loaded
-    // for (int i = 0; i < 10; i++) {
-    //     gpio_put(YELLOW_LED, 0);
-    //     sleep_ms(50);
-    //     gpio_put(YELLOW_LED, 1);
-    //     sleep_ms(50);
-    // }
+//     // // Startup signal: 10 rapid blinks to show program loaded
+//     // for (int i = 0; i < 10; i++) {
+//     //     gpio_put(YELLOW_LED, 0);
+//     //     sleep_ms(50);
+//     //     gpio_put(YELLOW_LED, 1);
+//     //     sleep_ms(50);
+//     // }
     
-    // sleep_ms(1000);  // Pause before starting FreeRTOS
+//     // sleep_ms(1000);  // Pause before starting FreeRTOS
     
-    // /**
-    //  * Create Task 1: Fast Blink (Priority 3)
-    //  * Stack: 256 words = 1024 bytes
-    //  */
-    // xTaskCreate(
-    //     task_fast_blink,
-    //     "FastBlink",
-    //     256,
-    //     NULL,
-    //     3,  // Highest priority
-    //     NULL
-    // );
+//     // /**
+//     //  * Create Task 1: Fast Blink (Priority 3)
+//     //  * Stack: 256 words = 1024 bytes
+//     //  */
+//     // xTaskCreate(
+//     //     task_fast_blink,
+//     //     "FastBlink",
+//     //     256,
+//     //     NULL,
+//     //     3,  // Highest priority
+//     //     NULL
+//     // );
     
-    // /**
-    //  * Create Task 2: Slow Blink (Priority 1)
-    //  * This will only run when fast blink is sleeping
-    //  */
-    // xTaskCreate(
-    //     task_slow_blink,
-    //     "SlowBlink",
-    //     256,
-    //     NULL,
-    //     1,  // Lowest priority
-    //     NULL
-    // );
+//     // /**
+//     //  * Create Task 2: Slow Blink (Priority 1)
+//     //  * This will only run when fast blink is sleeping
+//     //  */
+//     // xTaskCreate(
+//     //     task_slow_blink,
+//     //     "SlowBlink",
+//     //     256,
+//     //     NULL,
+//     //     1,  // Lowest priority
+//     //     NULL
+//     // );
     
-    // /**
-    //  * Create Task 3: Core 1 Task (Priority 2, Core Affinity = Core 1)
-    //  */
-    // TaskHandle_t core1_handle = NULL;
-    // xTaskCreate(
-    //     task_core1_exclusive,
-    //     "Core1Task",
-    //     256,
-    //     NULL,
-    //     2,  // Medium priority
-    //     &core1_handle
-    // );
+//     // /**
+//     //  * Create Task 3: Core 1 Task (Priority 2, Core Affinity = Core 1)
+//     //  */
+//     // TaskHandle_t core1_handle = NULL;
+//     // xTaskCreate(
+//     //     task_core1_exclusive,
+//     //     "Core1Task",
+//     //     256,
+//     //     NULL,
+//     //     2,  // Medium priority
+//     //     &core1_handle
+//     // );
     
-    // // Pin this task to Core 1 only
-    // // vTaskCoreAffinitySet(core1_handle, (1 << 1));  // Bit 1 = Core 1
+//     // // Pin this task to Core 1 only
+//     // // vTaskCoreAffinitySet(core1_handle, (1 << 1));  // Bit 1 = Core 1
     
-    // /**
-    //  * Create Task 4: Heartbeat (Priority 2)
-    //  */
-    // xTaskCreate(
-    //     task_heartbeat,
-    //     "Heartbeat",
-    //     256,
-    //     NULL,
-    //     2,
-    //     NULL
-    // );
+//     // /**
+//     //  * Create Task 4: Heartbeat (Priority 2)
+//     //  */
+//     // xTaskCreate(
+//     //     task_heartbeat,
+//     //     "Heartbeat",
+//     //     256,
+//     //     NULL,
+//     //     2,
+//     //     NULL
+//     // );
     
-    // /**
-    //  * Start the FreeRTOS scheduler
-    //  * This function NEVER returns
-    //  * CPU control transfers to FreeRTOS
-    //  */
-    // vTaskStartScheduler();
+//     // /**
+//     //  * Start the FreeRTOS scheduler
+//     //  * This function NEVER returns
+//     //  * CPU control transfers to FreeRTOS
+//     //  */
+//     // vTaskStartScheduler();
     
-    // // Should never reach here
-    // // If we do, blink SOS pattern (3 short, 3 long, 3 short)
-    // while (1) {
-    //         // Double blink
-    //         gpio_put(YELLOW_LED, 0);
-    //         sleep_ms(100);
-    //         gpio_put(YELLOW_LED, 1);
-    //         sleep_ms(100);
-    //         gpio_put(YELLOW_LED, 0);
-    //         sleep_ms(100);
-    //         gpio_put(YELLOW_LED, 1);
+//     // // Should never reach here
+//     // // If we do, blink SOS pattern (3 short, 3 long, 3 short)
+//     // while (1) {
+//     //         // Double blink
+//     //         gpio_put(YELLOW_LED, 0);
+//     //         sleep_ms(100);
+//     //         gpio_put(YELLOW_LED, 1);
+//     //         sleep_ms(100);
+//     //         gpio_put(YELLOW_LED, 0);
+//     //         sleep_ms(100);
+//     //         gpio_put(YELLOW_LED, 1);
             
-    //         // Long pause
-    //         sleep_ms(2000);
-    // }
-}
+//     //         // Long pause
+//     //         sleep_ms(2000);
+//     // }
+// }
 
 // main to test bare metal I2C without SDK initialization
 // int main () {
@@ -402,6 +488,14 @@ int main() {
 //     // Should never reach here
 //     while(1);
 // }
+
+int main() {
+    // Run performance comparison
+    xTaskCreate(performance_comparison_task, "PerfTest", 1024, NULL, 1, NULL);
+    
+    vTaskStartScheduler();
+    while(1);
+}
 
 // FreeRTOS stack overflow hook - called when a task overflows its stack
 void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
