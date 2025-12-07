@@ -37,7 +37,8 @@ pico_sdk_init()
 # Add executable
 add_executable(pico_freeRTOS 
     pico_freeRTOS.c
-    imu_driver.c
+    src/imu_driver.c
+    src/imu_bare_metal.c
 )
 
 pico_enable_stdio_usb(pico_freeRTOS 1)   # Enable USB serial

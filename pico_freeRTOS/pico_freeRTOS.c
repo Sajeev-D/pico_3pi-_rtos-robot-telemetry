@@ -19,6 +19,7 @@
 #include "task.h"
 #include <stdio.h>
 #include "header/imu_driver.h"
+#include "header/imu_bare_metal.h"
 
 // LED pins on 3pi+ robot
 #define YELLOW_LED 25
@@ -142,14 +143,17 @@ void imu_test_task(void *params) {
     printf("=====================================\n");
     printf("\nReady to configure and read sensor data!\n\n");
 
+    uint8_t who_am_i = imu_bare_metal_read_register(LSM6DSO_I2C_ADDR, LSM6DSO_WHO_AM_I);
+    printf("Bare metal WHO_AM_I: 0x%02X (expected 0x6C)\n", who_am_i);
+
     // Test I2C write and read functions
     printf("\n[TESTING] I2C Write/Read Functions\n");
     printf("=====================================\n");
 
     // Test 1: Read WHO_AM_I register directly using imu_read_register
     printf("\nTest 1: Read WHO_AM_I register (0x0F)\n");
-    uint8_t who_am_i = imu_read_register(0x0F);
-    printf("  Result: 0x%02X (expected 0x6C)\n", who_am_i);
+    uint8_t who_am_i_test = imu_read_register(0x0F);
+    printf("  Result: 0x%02X (expected 0x6C)\n", who_am_i_test);
 
     // Test 2: Read STATUS_REG register (0x1E) - shows if new data is available
     printf("\nTest 2: Read STATUS_REG (0x1E)\n");
