@@ -6,6 +6,9 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Initialise pico_sdk from installed location
+# (note this can come from environment, CMake cache etc)
+
 # == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
 if(WIN32)
     set(USERHOME $ENV{USERPROFILE})
@@ -25,35 +28,25 @@ set(PICO_BOARD pico CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-# ✨ ADD THIS - Include FreeRTOS from Pico SDK
-set(FREERTOS_KERNEL_PATH ${PICO_SDK_PATH}/lib/FreeRTOS-Kernel)
-include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/library.cmake)
-
-project(pico_freeRTOS C CXX ASM)
+project(blink C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable
-add_executable(pico_freeRTOS pico_freeRTOS.c)
+# Add executable. Default name is the project name, version 0.1
 
-pico_set_program_name(pico_freeRTOS "pico_freeRTOS")
-pico_set_program_version(pico_freeRTOS "0.1")
+add_executable(blink
+    blink.c
+    )
 
-# Enable stdio (you had these disabled - let's enable USB for debugging)
-pico_enable_stdio_uart(pico_freeRTOS 0)
-pico_enable_stdio_usb(pico_freeRTOS 1)
+# pull in common dependencies
+target_link_libraries(blink pico_stdlib)
 
-# Add libraries - ✨ SIMPLIFIED
-target_link_libraries(pico_freeRTOS
-    pico_stdlib
-    FreeRTOS-Kernel
-    FreeRTOS-Kernel-Heap4
-)
+if (PICO_CYW43_SUPPORTED)
+    target_link_libraries(blink pico_cyw43_arch_none)
+endif()
 
-# Add include directories
-target_include_directories(pico_freeRTOS PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}
-)
+# create map/bin/hex file etc.
+pico_add_extra_outputs(blink)
 
-pico_add_extra_outputs(pico_freeRTOS)
+# add url via pico_set_program_url
